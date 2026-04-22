@@ -66,6 +66,19 @@ module "api_gateway" {
   lambda_function_name = module.lambda.function_name
 }
 
+# ── DMS: RDS → S3 Bronze (Full Load) ─────────────────────────────────────────
+module "dms" {
+  source                = "../../modules/dms"
+  environment           = var.environment
+  subnet_ids            = data.aws_subnets.default.ids
+  rds_security_group_id = module.rds.security_group_id
+  rds_host              = module.rds.host
+  db_username           = var.db_username
+  db_password           = var.db_password
+  bronze_bucket_id      = module.bronze_s3.bucket_id
+  bronze_bucket_arn     = module.bronze_s3.bucket_arn
+}
+
 output "rds_endpoint" {
   value = module.rds.endpoint
 }
@@ -76,4 +89,12 @@ output "product_api_endpoint" {
 
 output "bronze_bucket" {
   value = module.bronze_s3.bucket_id
+}
+
+output "dms_s3_prefix" {
+  value = module.dms.s3_target_prefix
+}
+
+output "dms_task_arn" {
+  value = module.dms.task_arn
 }
