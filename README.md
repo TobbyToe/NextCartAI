@@ -1,3 +1,6 @@
+<img width="663" height="358" alt="image" src="https://github.com/user-attachments/assets/d40f0d58-bf1b-4c7c-82dc-8dec4ba8cd97" />
+
+
 # NextCartAI — Instacart MLOps
 
 End-to-end Data Engineering & ML project built on **Medallion Architecture**, using the [Instacart Market Basket Analysis](https://www.kaggle.com/competitions/instacart-market-basket-analysis/data) dataset as the source of truth. The project simulates three realistic data sources, ingests them into AWS S3 (Bronze layer), and progressively transforms data through Silver → Gold layers for downstream ML modeling.
