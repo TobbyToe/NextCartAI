@@ -1,0 +1,49 @@
+# Secrets & environment
+.env
+.env.*
+!.env.example
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+*.tfvars
+!*.tfvars.example
+**/.terraform.lock.hcl
+
+# Lambda build artifacts
+infra/lambda_handlers/*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Raw data — never commit large or sensitive datasets
+data/raw/
+data/interim/
+data/processed/
+references/imba_data/
+
+# Common large data file extensions (catch-all)
+*.csv
+*.csv.gz
+*.parquet
+*.json.gz

@@ -1,0 +1,6 @@
+aws_region  = "ap-southeast-2"
+environment = "dev"
+db_username = "instacart_admin"
+
+# Never commit db_password. Set it as an env var instead:
+#   export TF_VAR_db_password="your-secret-password"
