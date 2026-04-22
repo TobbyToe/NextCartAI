@@ -1,177 +1,154 @@
-# Instacart MLOps
+# NextCartAI — Instacart MLOps
 
-End-to-end Data Engineering & ML project built on **Medallion Architecture**, using the [Instacart Market Basket Analysis](https://www.kaggle.com/c/instacart-market-basket-analysis) dataset as the source of truth. The project simulates three realistic data sources, ingests them into AWS S3 (Bronze layer), and progressively transforms data through Silver → Gold layers for downstream ML modeling.
+End-to-end Data Engineering & ML project built on **Medallion Architecture**, using the [Instacart Market Basket Analysis](https://www.kaggle.com/competitions/instacart-market-basket-analysis/data) dataset as the source of truth. The project simulates three realistic data sources, ingests them into AWS S3 (Bronze layer), and progressively transforms data through Silver → Gold layers for downstream ML modeling.
+
+> **详细操作手册 / Full step-by-step guide** → [DATA_PIPELINE_RUNBOOK.md](DATA_PIPELINE_RUNBOOK.md)
 
 ---
 
-## Architecture Overview
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        Simulated Data Sources                       │
-│                                                                     │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────┐ │
-│  │  Historical RDS │  │   Product API   │  │   Kinesis Stream    │ │
-│  │  (orders +      │  │  (API Gateway + │  │  (real-time order   │ │
-│  │  order_products)│  │   Lambda)       │  │   events)  [WIP]    │ │
-│  └────────┬────────┘  └────────┬────────┘  └──────────┬──────────┘ │
-└───────────┼────────────────────┼─────────────────────┼─────────────┘
-            │                    │                      │
-            ▼                    ▼                      ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    S3 Bronze Layer (raw, as-is)                     │
-│   bronze/historical/   bronze/api/          bronze/stream/          │
-└─────────────────────────────────┬───────────────────────────────────┘
-                                  │ Glue / Spark ETL
-                                  ▼
-                    S3 Silver Layer (cleaned, standardised)
-                                  │
-                                  ▼
-                    S3 Gold Layer (aggregated feature tables)
-                                  │
-                                  ▼
-                            ML Modeling
+references/imba_data/  (local truth data, read-only)
+        │
+        ├── orders.csv + order_products__prior.csv.gz
+        │        └─[rds_seeder.py]──→ RDS PostgreSQL (instacart-dev)
+        │                                      │
+        │                             [DMS Full Load]
+        │                                      │
+        ├── products.csv + aisles.csv + departments.csv
+        │        └─[api_simulator.py]──→ API Gateway → Lambda
+        │                                      │
+        │                                      ↓
+        │                          S3 Bronze Bucket
+        │                      ├── bronze/historical/   ← DMS
+        │                      └── bronze/api/          ← Lambda
+        │
+        └── (WIP) Kinesis Stream → bronze/stream/
+                                      │
+                               [Glue/Spark ETL]
+                                      │
+                              S3 Silver (cleaned)
+                                      │
+                               S3 Gold (features)
+                                      │
+                              ML Model Training
 ```
 
-**Infrastructure:** Terraform (IaC) · **CI/CD:** GitHub Actions · **Cloud:** AWS ap-southeast-2
+**Cloud:** AWS ap-southeast-2 (Sydney) · **IaC:** Terraform · **CI/CD:** GitHub Actions (OIDC)
 
 ---
 
-## Data Source
+## Current Build Status
 
-All three simulated sources are derived from the Instacart Market Basket Analysis dataset (`references/imba_data/`):
-
-| Table | Rows | Description |
-|---|---|---|
-| `orders` | 3.4M | Order metadata (user, day-of-week, hour, days since prior) |
-| `order_products` | 32M+ | Product line items per order (prior split) |
-| `products` | 50k | Product catalogue with aisle and department |
-| `aisles` | 134 | Aisle lookup |
-| `departments` | 21 | Department lookup |
-
-See `references/ERD.png` for the full entity-relationship diagram.
-
-**Source mapping:**
-
-| Simulated Source | Tables | Destination |
-|---|---|---|
-| Historical RDS (PostgreSQL) | `orders`, `order_products` | `s3://bronze/historical/` |
-| Product API (API Gateway + Lambda) | `products`, `aisles`, `departments` | `s3://bronze/api/` |
-| Kinesis Stream *(WIP)* | real-time order events | `s3://bronze/stream/` |
+| Layer | Source | Status | S3 Path |
+|-------|--------|--------|---------|
+| Bronze | Historical RDS → DMS | ✅ Complete | `bronze/historical/` |
+| Bronze | Product API → Lambda | ✅ Complete | `bronze/api/` |
+| Bronze | Kinesis Stream | 🔲 WIP | `bronze/stream/` |
+| Silver | Glue/Spark ETL | 🔲 WIP | `silver/` |
+| Gold | Feature tables | 🔲 WIP | `gold/` |
 
 ---
 
-## Prerequisites
+## Data
 
-- Python 3.11+
-- Terraform >= 1.6
-- AWS CLI configured (`aws configure` or environment variables)
-- psycopg2-binary, sqlalchemy, boto3 (`pip install -e ".[dev]"`)
+All three simulated sources derive from the Instacart dataset (`references/imba_data/` — local only, gitignored):
+
+| File | Rows | Used by |
+|------|------|---------|
+| `orders.csv` | 3.4M | RDS seeder → DMS → `bronze/historical/` |
+| `order_products__prior.csv.gz` | 32M | RDS seeder → DMS → `bronze/historical/` |
+| `products.csv` | 49,688 | API simulator → `bronze/api/` |
+| `aisles.csv` | 134 | API simulator → `bronze/api/` |
+| `departments.csv` | 21 | API simulator → `bronze/api/` |
+
+Download from Kaggle → place in `references/imba_data/` → see [RUNBOOK Phase 0](DATA_PIPELINE_RUNBOOK.md).
 
 ---
 
-## Quickstart
-
-### 1. Clone and configure environment
+## Quick Setup
 
 ```bash
+# 1. Clone & install
+git clone <repo-url> && cd NextCartAI
+pip install -r requirements.txt
+
+# 2. Configure environment
 cp .env.example .env
-# Fill in AWS credentials and RDS connection details
-```
+# Edit .env: fill AWS credentials + RDS connection
 
-### 2. Deploy infrastructure (dev)
-
-```bash
-# Pre-create Terraform state bucket (one-time only)
-aws s3 mb s3://instacart-mlops-tfstate --region ap-southeast-2
-
+# 3. Deploy infrastructure
 cd infra/environments/dev
-cp terraform.tfvars.example terraform.tfvars   # fill in values
-export TF_VAR_db_password="your-secret"
+export TF_VAR_db_username=instacart_admin
+export TF_VAR_db_password="<your-password>"
+terraform init && terraform apply -auto-approve
 
-terraform init
-terraform plan
-terraform apply
-```
-
-Outputs after apply:
-
-| Output | Value |
-|---|---|
-| `bronze_bucket` | `instacart-mlops-bronze-dev-<account_id>` |
-| `rds_endpoint` | `instacart-dev.<id>.ap-southeast-2.rds.amazonaws.com:5432` |
-| `product_api_endpoint` | `https://<id>.execute-api.ap-southeast-2.amazonaws.com//product-events` |
-
-### 3. Seed RDS with historical data
-
-```bash
-export RDS_HOST=<rds_endpoint_without_port>
-export RDS_USER=instacart_admin
-export RDS_PASSWORD=<your-password>
-
+# 4. Seed RDS with historical data (~20 min)
+export $(cat ../../.env | xargs)
 python -m instacart_mlops.ingestion.rds_seeder
-# To force re-seed: python -m instacart_mlops.ingestion.rds_seeder --force
-```
 
-Expected duration: ~4 min for `orders` (3.4M rows), ~15 min for `order_products` (32M rows) over public internet.
+# 5. Push product catalog to API → S3 (~30 min)
+export API_ENDPOINT=$(cd infra/environments/dev && terraform output -raw product_api_endpoint)
+python -m instacart_mlops.ingestion.api_simulator
 
-### 4. Test the Product API
-
-```bash
-curl -X POST <product_api_endpoint> \
-  -H "Content-Type: application/json" \
-  -d '{"type": "product", "product_id": 1, "product_name": "Chocolate Sandwich Cookies", "aisle_id": 61, "department_id": 19}'
-# Returns: {"status": "ok", "s3_key": "bronze/api/product/YYYY/MM/DD/...json"}
+# 6. Run DMS full load: RDS → S3 bronze/historical/ (~45 min)
+#    See DATA_PIPELINE_RUNBOOK.md Phase 4 for full CLI steps
 ```
 
 ---
 
 ## Infrastructure Modules
 
-| Module | Resources |
-|---|---|
-| `infra/modules/s3` | Bronze bucket, versioning, public access block |
+| Module | Key Resources |
+|--------|---------------|
+| `infra/modules/s3` | Bronze bucket, versioning, public-access block |
 | `infra/modules/rds` | PostgreSQL db.t3.micro, subnet group, security group |
-| `infra/modules/lambda` | Lambda (Python 3.11), IAM role (least-privilege: `s3:PutObject` to `bronze/api/*` only) |
-| `infra/modules/api_gateway` | HTTP API Gateway, `POST /product-events` route |
+| `infra/modules/lambda` | Python 3.11 function, IAM role scoped to `bronze/api/*` |
+| `infra/modules/api_gateway` | HTTP API, `POST /product-events` route |
+| `infra/modules/dms` | Replication instance (dms.t3.small), source/target endpoints, full-load task |
 
 ---
 
-## CI/CD
+## Cost Management
 
-| Trigger | Action |
-|---|---|
-| Push / PR | Auto-run `flake8` + `pytest` |
-| PR | `terraform plan` runs automatically and posts output as PR comment |
-| Manual (`workflow_dispatch`) | `terraform apply` — never auto-deployed |
+Running costs (ap-southeast-2):
 
-GitHub Actions uses **OIDC** authentication. No long-lived AWS keys are stored in the repository.
+| Resource | Cost | Notes |
+|----------|------|-------|
+| RDS db.t3.micro | ~$20/mo | Stop when not developing |
+| DMS dms.t3.small | ~$39/mo | **Destroy immediately after full-load** |
+| S3 (~300 MB) | ~$0.01/mo | Keep |
+| Lambda / API GW | $0 idle | Keep |
+
+```bash
+# Stop RDS (pause dev work)
+aws rds stop-db-instance --db-instance-identifier instacart-dev
+
+# Destroy DMS after load completes
+cd infra/environments/dev && terraform destroy -target=module.dms -auto-approve
+
+# Resume RDS
+aws rds start-db-instance --db-instance-identifier instacart-dev
+```
 
 ---
 
 ## Development
 
 ```bash
-# Install dependencies
-pip install -e ".[dev]"
-
-# Lint
-flake8 instacart_mlops/
-
-# Format
-black instacart_mlops/
-
-# Test
-pytest
+flake8 instacart_mlops/   # lint
+black instacart_mlops/    # format
+pytest                    # test
 ```
+
+CI runs flake8 + pytest on every push/PR. `terraform apply` is manual-only (`workflow_dispatch`).
 
 ---
 
-## Security Notes
+## Security
 
 - `.env` and `*.tfvars` are gitignored — never commit secrets.
-- RDS is `publicly_accessible = false` by default. For local dev, temporarily add your IP to the security group (`sg-08bf27d115b12d932`) on port 5432 — remember to remove it afterwards.
+- GitHub Actions authenticates via **OIDC** — no long-lived AWS keys in the repo.
+- RDS is `publicly_accessible = false` by default. For local dev, temporarily enable it via `aws rds modify-db-instance --publicly-accessible`.
 - Lambda IAM role is scoped to `s3:PutObject` on `bronze/api/*` only.
-
-
-####     cloud formation allen
