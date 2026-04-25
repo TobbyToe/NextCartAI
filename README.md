@@ -137,15 +137,46 @@ aws rds start-db-instance --db-instance-identifier instacart-dev
 
 ---
 
-## Development
+## CI / CD
+
+Two GitHub Actions workflows run automatically.
+
+### `ci.yml` — Lint & Test
+
+Triggers on **every push** to any branch and on **every PR to `main`**.
+
+1. Checks out the code and installs all dev dependencies via `pip install -e ".[dev]"`.
+2. Runs **flake8** on `instacart_mlops/` to enforce PEP 8 style (config in `.flake8`).
+3. Runs **pytest** on `tests/` with verbose output.
+
+A PR cannot be considered ready to merge until this job is green.
 
 ```bash
-flake8 instacart_mlops/   # lint
-black instacart_mlops/    # format
-pytest                    # test
+# Run the same checks locally before pushing
+flake8 instacart_mlops/
+pytest tests/ -v --tb=short
 ```
 
-CI runs flake8 + pytest on every push/PR. `terraform apply` is manual-only (`workflow_dispatch`).
+---
+
+### `terraform.yml` — Infrastructure
+
+Triggers on two events:
+
+| Event | When | What runs |
+|-------|------|-----------|
+| **Pull Request** to `main` (paths: `infra/**`) | Any PR touching infra | `terraform fmt -check` + `terraform validate` + `terraform plan`, then posts the plan output as a PR comment so reviewers can see what will change before approving. |
+| **Manual dispatch** (`workflow_dispatch`) | You click "Run workflow" in GitHub Actions | Choose one of the three options below. |
+
+**Manual dispatch options:**
+
+| Option | What it does |
+|--------|-------------|
+| `plan` | Runs `terraform plan` and prints the output — a dry run with no changes applied. Use this to preview what will change without touching AWS. |
+| `apply` | Runs `terraform apply` against the saved plan — **actually provisions or updates AWS resources**. Only run this after reviewing the plan output. |
+| `destroy-dms` | Runs `terraform destroy -target=module.dms` — tears down **only the DMS replication instance and task** to stop the ~$39/mo charge after a full-load completes. All other resources (RDS, S3, Kinesis, Lambda) are left untouched. |
+
+> AWS credentials are stored as GitHub Secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `TF_VAR_DB_PASSWORD`) and are never committed to the repo.
 
 ---
 
