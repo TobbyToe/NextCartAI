@@ -8,7 +8,8 @@ by the Lambda handler.
 
 Usage:
     export API_ENDPOINT=https://<id>.execute-api.ap-southeast-2.amazonaws.com//product-events
-    export API_KEY=$(aws ssm get-parameter --name /instacart/dev/api-key --with-decryption --query Parameter.Value --output text)
+    export API_KEY=$(aws ssm get-parameter --name /instacart/dev/api-key \
+        --with-decryption --query Parameter.Value --output text)
     python -m instacart_mlops.ingestion.api_simulator
     python -m instacart_mlops.ingestion.api_simulator --workers 20 --delay 0.005
 """
