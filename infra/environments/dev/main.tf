@@ -108,6 +108,22 @@ module "dms" {
   bronze_bucket_arn     = module.bronze_s3.bucket_arn
 }
 
+# ── Kinesis Stream + Firehose → S3 Bronze ────────────────────────────────────
+module "kinesis" {
+  source            = "../../modules/kinesis"
+  environment       = var.environment
+  bronze_bucket_id  = module.bronze_s3.bucket_id
+  bronze_bucket_arn = module.bronze_s3.bucket_arn
+}
+
+output "kinesis_stream_name" {
+  value = module.kinesis.stream_name
+}
+
+output "kinesis_s3_prefix" {
+  value = module.kinesis.s3_prefix
+}
+
 output "rds_endpoint" {
   value = module.rds.endpoint
 }

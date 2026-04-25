@@ -1,10 +1,6 @@
 """Unit tests for api_simulator — no AWS or network calls required."""
 
-import os
-import types
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from instacart_mlops.ingestion.api_simulator import _load_records, _post_with_retry
 
