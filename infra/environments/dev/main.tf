@@ -24,10 +24,38 @@ data "aws_subnets" "default" {
   }
 }
 
+data "aws_route_tables" "default" {
+  vpc_id = data.aws_vpc.default.id
+}
+
 data "archive_file" "product_api_handler" {
   type        = "zip"
   source_file = "${path.root}/../../lambda_handlers/product_api/handler.py"
   output_path = "${path.root}/../../lambda_handlers/product_api.zip"
+}
+
+# ── S3 VPC Gateway Endpoint ───────────────────────────────────────────────────
+# Free. Routes VPC → S3 traffic through AWS private network.
+# Allows DMS replication instance to run with publicly_accessible = false.
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = data.aws_vpc.default.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = data.aws_route_tables.default.ids
+}
+
+# ── API Key ───────────────────────────────────────────────────────────────────
+# Random 32-char key; passed to Lambda as env var and stored in SSM.
+# Retrieve with: aws ssm get-parameter --name /instacart/dev/api-key --with-decryption
+resource "random_password" "api_key" {
+  length  = 32
+  special = false
+}
+
+resource "aws_ssm_parameter" "api_key" {
+  name  = "/instacart/${var.environment}/api-key"
+  type  = "SecureString"
+  value = random_password.api_key.result
 }
 
 # ── S3 Bronze Bucket ──────────────────────────────────────────────────────────
@@ -56,6 +84,7 @@ module "lambda" {
   bronze_bucket_id  = module.bronze_s3.bucket_id
   bronze_bucket_arn = module.bronze_s3.bucket_arn
   source_zip_path   = data.archive_file.product_api_handler.output_path
+  api_key           = random_password.api_key.result
 }
 
 # ── API Gateway (HTTP API) ────────────────────────────────────────────────────
@@ -97,4 +126,9 @@ output "dms_s3_prefix" {
 
 output "dms_task_arn" {
   value = module.dms.task_arn
+}
+
+output "api_key_ssm_path" {
+  value       = aws_ssm_parameter.api_key.name
+  description = "Retrieve with: aws ssm get-parameter --name <value> --with-decryption --query Parameter.Value --output text"
 }

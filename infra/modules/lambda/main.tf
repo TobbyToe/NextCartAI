@@ -47,6 +47,7 @@ resource "aws_lambda_function" "this" {
     variables = {
       BRONZE_BUCKET = var.bronze_bucket_id
       ENVIRONMENT   = var.environment
+      API_KEY       = var.api_key
     }
   }
 
