@@ -8,6 +8,7 @@ by the Lambda handler.
 
 Usage:
     export API_ENDPOINT=https://<id>.execute-api.ap-southeast-2.amazonaws.com//product-events
+    export API_KEY=$(aws ssm get-parameter --name /instacart/dev/api-key --with-decryption --query Parameter.Value --output text)
     python -m instacart_mlops.ingestion.api_simulator
     python -m instacart_mlops.ingestion.api_simulator --workers 20 --delay 0.005
 """
@@ -31,6 +32,7 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 IMBA_DIR = Path(__file__).parents[2] / "references" / "imba_data"
+API_KEY = os.environ.get("API_KEY", "")
 
 # Send aisles and departments before products (products FK-reference both)
 SOURCES = [
@@ -45,7 +47,10 @@ _thread_local = local()
 def _session() -> requests.Session:
     """One persistent Session per thread for connection reuse."""
     if not hasattr(_thread_local, "session"):
-        _thread_local.session = requests.Session()
+        sess = requests.Session()
+        if API_KEY:
+            sess.headers.update({"x-api-key": API_KEY})
+        _thread_local.session = sess
     return _thread_local.session
 
 

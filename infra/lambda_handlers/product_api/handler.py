@@ -7,12 +7,19 @@ import boto3
 
 s3 = boto3.client("s3")
 BUCKET = os.environ["BRONZE_BUCKET"]
+API_KEY = os.environ.get("API_KEY", "")
 
 VALID_TYPES = {"product", "aisle", "department"}
 
 
 def lambda_handler(event, context):
     try:
+        # API key check — skip only if API_KEY env var is unset (local/test)
+        if API_KEY:
+            headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
+            if headers.get("x-api-key") != API_KEY:
+                return _response(401, {"error": "Unauthorized"})
+
         body = json.loads(event.get("body") or "{}")
         event_type = body.get("type")
 

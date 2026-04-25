@@ -18,6 +18,11 @@ variable "source_zip_path" {
   type = string
 }
 
+variable "api_key" {
+  type      = string
+  sensitive = true
+}
+
 variable "tags" {
   type    = map(string)
   default = {}

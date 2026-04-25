@@ -92,7 +92,7 @@ resource "aws_dms_replication_instance" "this" {
   replication_instance_class  = var.replication_instance_class
   replication_subnet_group_id = aws_dms_replication_subnet_group.this.replication_subnet_group_id
   vpc_security_group_ids      = [var.rds_security_group_id]
-  publicly_accessible         = true
+  publicly_accessible         = false
   multi_az                    = false
   tags                        = var.tags
 }
