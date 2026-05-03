@@ -160,16 +160,18 @@ def main() -> None:
     if not RDS_HOST or not RDS_PASSWORD:
         raise ValueError(
             "RDS_HOST and RDS_PASSWORD environment variables are required. "
-            "Set them before running this script."
+            f"Got: RDS_HOST={RDS_HOST!r}, RDS_PASSWORD={'***' if RDS_PASSWORD else ''!r}"
         )
 
     if not DATABASE_URL:
         raise ValueError(
             f"Could not construct DATABASE_URL. "
-            f"RDS_HOST={RDS_HOST!r}, RDS_PASSWORD={'***' if RDS_PASSWORD else ''!r}"
+            f"RDS_HOST={RDS_HOST!r}, RDS_PORT={RDS_PORT!r}, "
+            f"RDS_DB={RDS_DB!r}, RDS_USER={RDS_USER!r}"
         )
 
     log.info(f"Connecting to RDS at {RDS_HOST}:{RDS_PORT}/{RDS_DB} as {RDS_USER}")
+    log.info(f"DATABASE_URL: {DATABASE_URL[:30]}...")  # Log first 30 chars for debugging
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     pg_conn = _pg_conn(DATABASE_URL)
