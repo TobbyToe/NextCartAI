@@ -22,7 +22,7 @@ from pathlib import Path
 import psycopg2
 from sqlalchemy import create_engine, text
 
-from instacart_mlops.config import DATABASE_URL
+from instacart_mlops.config import DATABASE_URL, RDS_HOST, RDS_PASSWORD, RDS_DB, RDS_PORT, RDS_USER
 
 logging.basicConfig(
     level=logging.INFO,
@@ -155,6 +155,21 @@ def main() -> None:
         help="Truncate existing tables and re-seed from scratch.",
     )
     args = parser.parse_args()
+
+    # Validate required environment variables
+    if not RDS_HOST or not RDS_PASSWORD:
+        raise ValueError(
+            "RDS_HOST and RDS_PASSWORD environment variables are required. "
+            "Set them before running this script."
+        )
+
+    if not DATABASE_URL:
+        raise ValueError(
+            f"Could not construct DATABASE_URL. "
+            f"RDS_HOST={RDS_HOST!r}, RDS_PASSWORD={'***' if RDS_PASSWORD else ''!r}"
+        )
+
+    log.info(f"Connecting to RDS at {RDS_HOST}:{RDS_PORT}/{RDS_DB} as {RDS_USER}")
 
     engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     pg_conn = _pg_conn(DATABASE_URL)
