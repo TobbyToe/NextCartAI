@@ -18,6 +18,7 @@ Environment variables:
 """
 
 import os
+import urllib.parse
 from pathlib import Path
 
 # ── AWS / S3 ──────────────────────────────────────────────────────────────────
@@ -49,8 +50,6 @@ RDS_PASSWORD = os.getenv("RDS_PASSWORD", "")
 
 # Build DATABASE_URL for SQLAlchemy
 # Note: Special characters in password need to be URL-encoded
-import urllib.parse
-
 if RDS_HOST and RDS_PASSWORD:
     encoded_password = urllib.parse.quote_plus(RDS_PASSWORD)
     DATABASE_URL = f"postgresql://{RDS_USER}:{encoded_password}@{RDS_HOST}:{RDS_PORT}/{RDS_DB}"
