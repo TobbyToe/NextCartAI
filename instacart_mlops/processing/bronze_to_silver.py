@@ -66,7 +66,9 @@ BRONZE_ORDER_PRODUCTS_PATH = f"{BRONZE_HISTORICAL_PREFIX}/public/order_products/
 BRONZE_PRODUCTS_PATH = f"{BRONZE_API_PREFIX}/product/*.json"
 BRONZE_AISLES_PATH = f"{BRONZE_API_PREFIX}/aisle/*.json"
 BRONZE_DEPARTMENTS_PATH = f"{BRONZE_API_PREFIX}/department/*.json"
-BRONZE_ORDER_PRODUCTS_TRAIN_PATH = f"{BRONZE_HISTORICAL_PREFIX}/manual/order_products_train/*.csv.gz"
+BRONZE_ORDER_PRODUCTS_TRAIN_PATH = (
+    f"{BRONZE_HISTORICAL_PREFIX}/manual/order_products_train/*.csv.gz"
+)
 
 # Contract paths (relative to project root)
 CONTRACTS_DIR = Path(__file__).parents[3] / "contracts"
@@ -74,7 +76,10 @@ CONTRACTS_DIR = Path(__file__).parents[3] / "contracts"
 
 # ── Spark Session ──────────────────────────────────────────────────────────────
 
-def create_spark_session(app_name: str = SPARK_APP_NAME, master: str = SPARK_MASTER) -> SparkSession:
+def create_spark_session(
+    app_name: str = SPARK_APP_NAME,
+    master: str = SPARK_MASTER,
+) -> SparkSession:
     """
     Create a Spark session configured for S3 access.
 
@@ -183,7 +188,10 @@ def transform_orders(df: DataFrame) -> DataFrame:
     silver = (
         df
         # Fill NULL days_since_prior_order with 0.0
-        .withColumn("days_since_prior_order", F.coalesce(F.col("days_since_prior_order"), F.lit(0.0)))
+        .withColumn(
+            "days_since_prior_order",
+            F.coalesce(F.col("days_since_prior_order"), F.lit(0.0)),
+        )
         # Add partition bucket
         .withColumn("user_id_bucket", F.col("user_id") % 100)
         # Ensure correct types
@@ -280,7 +288,12 @@ def transform_products(
 
 # ── Writers ─────────────────────────────────────────────────────────────────────
 
-def write_silver(df: DataFrame, bucket: str, path: str, partition_cols: Optional[list[str]] = None) -> None:
+def write_silver(
+    df: DataFrame,
+    bucket: str,
+    path: str,
+    partition_cols: Optional[list[str]] = None,
+) -> None:
     """
     Write DataFrame to Silver layer as Parquet.
 
@@ -349,7 +362,7 @@ def run_pipeline(bucket: Optional[str] = None) -> None:
     if not bucket:
         raise ValueError("S3_BUCKET must be set via environment variable or argument")
 
-    logger.info(f"Starting Bronze → Silver ETL pipeline")
+    logger.info("Starting Bronze → Silver ETL pipeline")
     logger.info(f"S3 Bucket: {bucket}")
 
     spark = create_spark_session()
@@ -373,7 +386,12 @@ def run_pipeline(bucket: Optional[str] = None) -> None:
         bronze_order_products = read_bronze_order_products(spark, bucket)
         silver_order_products = transform_order_products(bronze_order_products)
         validate_silver(silver_order_products, "order_products")
-        write_silver(silver_order_products, bucket, SILVER_ORDER_PRODUCTS_PATH, partition_cols=["order_id_bucket"])
+        write_silver(
+            silver_order_products,
+            bucket,
+            SILVER_ORDER_PRODUCTS_PATH,
+            partition_cols=["order_id_bucket"],
+        )
 
         # ── Step 3: Process Product Catalog ─────────────────────────────────────
         logger.info("=" * 60)
@@ -395,7 +413,12 @@ def run_pipeline(bucket: Optional[str] = None) -> None:
         bronze_train = read_bronze_order_products_train(spark, bucket)
         if bronze_train is not None:
             silver_train = transform_order_products(bronze_train)
-            write_silver(silver_train, bucket, SILVER_ORDER_PRODUCTS_TRAIN_PATH, partition_cols=["order_id_bucket"])
+            write_silver(
+                silver_train,
+                bucket,
+                SILVER_ORDER_PRODUCTS_TRAIN_PATH,
+                partition_cols=["order_id_bucket"],
+            )
         else:
             logger.warning("Skipping order_products_train - source data not found")
 

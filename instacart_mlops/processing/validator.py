@@ -258,7 +258,10 @@ class SchemaValidator:
                 if "name" not in field:
                     errors.append(f"Field {i} missing required attribute: name")
                 if "type" not in field:
-                    errors.append(f"Field '{field.get('name', i)}' missing required attribute: type")
+                    field_name = field.get("name", i)
+                    errors.append(
+                        f"Field '{field_name}' missing required attribute: type"
+                    )
                 elif field["type"].lower() not in TYPE_MAPPING:
                     errors.append(
                         f"Field '{field['name']}' has unknown type: {field['type']}. "
