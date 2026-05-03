@@ -40,12 +40,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: |
+          cd $TERRAFORM_DIR
+          terraform init
+
       - name: Get Terraform outputs
         id: tf-outputs
         run: |
           cd $TERRAFORM_DIR
           echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
           echo "bronze_bucket=$(terraform output -raw bronze_bucket)" >> $GITHUB_OUTPUT
+          echo "RDS Endpoint: $(terraform output -raw rds_endpoint)"
+          echo "Bucket: $(terraform output -raw bronze_bucket)"
 
       - name: Install dependencies
         run: |
