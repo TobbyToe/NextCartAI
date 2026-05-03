@@ -1,0 +1,19 @@
+name: bronze_aisles
+description: "Aisle metadata from API (Aisle events written by Lambda)"
+source: "bronze/api/aisle/*.json"
+fields:
+  - name: aisle_id
+    type: integer
+    nullable: false
+    description: "Unique aisle identifier (Primary Key)"
+
+  - name: aisle
+    type: string
+    nullable: false
+    description: "Aisle name"
+
+  - name: type
+    type: string
+    nullable: false
+    description: "Event type marker"
+    allowed_values: ["aisle"]

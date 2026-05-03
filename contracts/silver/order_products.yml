@@ -1,0 +1,50 @@
+name: silver_order_products
+description: "Cleaned order product line items (Bronze → Silver ETL)"
+source: "bronze/historical/public/order_products/*.csv.gz"
+target: "silver/order_products/"
+partition_by: ["order_id_bucket"]
+format: parquet
+
+fields:
+  - name: order_id
+    type: integer
+    nullable: false
+    description: "Order identifier (Foreign Key → orders.order_id)"
+
+  - name: product_id
+    type: integer
+    nullable: false
+    description: "Product identifier (Foreign Key → products.product_id)"
+
+  - name: add_to_cart_order
+    type: integer
+    nullable: false
+    description: "Order in which the product was added to the cart"
+    min_value: 1
+
+  - name: reordered
+    type: boolean
+    nullable: false
+    description: "True if user previously ordered this product"
+
+  - name: order_id_bucket
+    type: integer
+    nullable: false
+    description: "Partition bucket: order_id % 100"
+    min_value: 0
+    max_value: 99
+
+transformations:
+  - name: cast_reordered_to_boolean
+    description: "Convert integer reordered (0/1) to boolean"
+    field: reordered
+    rule: "CAST(reordered AS BOOLEAN)"
+
+  - name: add_partition_bucket
+    description: "Add partition bucket column for efficient querying"
+    field: order_id_bucket
+    rule: "order_id % 100"
+
+  - name: deduplicate
+    description: "Remove duplicate records based on (order_id, product_id)"
+    key: ["order_id", "product_id"]

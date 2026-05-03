@@ -1,0 +1,19 @@
+name: bronze_departments
+description: "Department metadata from API (Department events written by Lambda)"
+source: "bronze/api/department/*.json"
+fields:
+  - name: department_id
+    type: integer
+    nullable: false
+    description: "Unique department identifier (Primary Key)"
+
+  - name: department
+    type: string
+    nullable: false
+    description: "Department name"
+
+  - name: type
+    type: string
+    nullable: false
+    description: "Event type marker"
+    allowed_values: ["department"]

@@ -164,15 +164,15 @@ resource "aws_dms_replication_task" "full_load" {
 
   replication_task_settings = jsonencode({
     FullLoadSettings = {
-      TargetTablePrepMode  = "DO_NOTHING"
-      MaxFullLoadSubTasks  = 2
-      CommitRate           = 50000
+      TargetTablePrepMode = "DO_NOTHING"
+      MaxFullLoadSubTasks = 2
+      CommitRate          = 50000
     }
     Logging = {
       EnableLogging = true
       LogComponents = [
         { Id = "SOURCE_UNLOAD", Severity = "LOGGER_SEVERITY_DEFAULT" },
-        { Id = "TARGET_LOAD",   Severity = "LOGGER_SEVERITY_DEFAULT" }
+        { Id = "TARGET_LOAD", Severity = "LOGGER_SEVERITY_DEFAULT" }
       ]
     }
   })

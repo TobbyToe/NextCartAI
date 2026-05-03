@@ -1,0 +1,25 @@
+name: bronze_order_products
+description: "Raw order product line items from DMS replication (RDS → S3)"
+source: "bronze/historical/public/order_products/*.csv.gz"
+fields:
+  - name: order_id
+    type: integer
+    nullable: false
+    description: "Order identifier (Foreign Key → orders.order_id)"
+
+  - name: product_id
+    type: integer
+    nullable: false
+    description: "Product identifier (Foreign Key → products.product_id)"
+
+  - name: add_to_cart_order
+    type: integer
+    nullable: false
+    description: "Order in which the product was added to the cart (1 = first item)"
+    min_value: 1
+
+  - name: reordered
+    type: integer
+    nullable: false
+    description: "Binary indicator: 1 if user previously ordered this product, 0 otherwise"
+    allowed_values: [0, 1]
