@@ -1,0 +1,19 @@
+# NextCartAI Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core dependencies
+pyspark>=3.4.0
+pyyaml>=6.0
+psycopg2-binary>=2.9.9
+sqlalchemy>=2.0.0
+boto3>=1.34.0
+requests>=2.31.0
+
+# Development dependencies
+pytest>=7.4.0
+flake8>=6.1.0
+black>=23.0.0
+isort>=5.12.0
+
+# AWS CLI (for GitHub Actions)
+# awscli is pre-installed in GitHub Actions runners
