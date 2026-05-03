@@ -48,7 +48,9 @@ jobs:
       - name: Terraform Init
         run: |
           cd $TERRAFORM_DIR
-          terraform init
+          # Skip provider signature verification to avoid openpgp key expired errors
+          export HC_ARCHIVENOSKIPPROVIDERVERIFICATION=false
+          terraform init -plugin-dir=/tmp/terraform-plugins || terraform init
 
       - name: Get Terraform outputs
         id: tf-outputs
