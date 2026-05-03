@@ -31,7 +31,6 @@ Usage:
 
 import argparse
 import logging
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -43,7 +42,6 @@ from instacart_mlops.config import (
     S3_BUCKET,
     BRONZE_API_PREFIX,
     BRONZE_HISTORICAL_PREFIX,
-    SILVER_PREFIX,
     SILVER_ORDERS_PATH,
     SILVER_ORDER_PRODUCTS_PATH,
     SILVER_PRODUCTS_PATH,
