@@ -61,7 +61,7 @@ resource "aws_ssm_parameter" "api_key" {
 # ── S3 Bronze Bucket ──────────────────────────────────────────────────────────
 module "bronze_s3" {
   source      = "../../modules/s3"
-  bucket_name = "instacart-mlops-bronze-${var.environment}-${data.aws_caller_identity.current.account_id}"
+  bucket_name = "nextcartai-dev-${data.aws_caller_identity.current.account_id}"
 }
 
 # ── RDS PostgreSQL (Historical Orders) ───────────────────────────────────────

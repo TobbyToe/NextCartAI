@@ -12,6 +12,8 @@ dependencies = [
     "pandas>=2.0",
     "boto3>=1.34",
     "requests>=2.31",
+    "pyyaml>=6.0",      # Data contract validation
+    "pyspark>=3.4",     # Bronze → Silver ETL
 ]
 
 [project.optional-dependencies]

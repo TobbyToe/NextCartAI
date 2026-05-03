@@ -471,22 +471,62 @@ aws rds modify-db-instance \
 ## What's in S3 After This Runbook
 
 ```
-s3://instacart-mlops-bronze-dev-<account_id>/
+s3://nextcartai-dev-<account_id>/
 ├── bronze/
-│   ├── historical/                          ← from DMS (RDS full load)
-│   │   └── public/
-│   │       ├── orders/
-│   │       │   └── LOAD00000001.csv.gz      (3.4M rows, 44 MB)
-│   │       └── order_products/
-│   │           ├── LOAD00000001.csv.gz      (32M rows part 1, 185 MB)
-│   │           └── LOAD00000002.csv.gz      (32M rows part 2,  84 MB)
-│   └── api/                                 ← from Lambda (API simulator)
-│       ├── aisle/YYYY/MM/DD/*.json          (134 files)
-│       ├── department/YYYY/MM/DD/*.json     (21 files)
-│       └── product/YYYY/MM/DD/*.json        (49,688 files)
+│   ├── api/                                 ← from Lambda (API simulator)
+│   │   ├── aisle/YYYY/MM/DD/*.json          (134 files)
+│   │   ├── department/YYYY/MM/DD/*.json     (21 files)
+│   │   └── product/YYYY/MM/DD/*.json        (49,688 files)
+│   └── historical/                          ← from DMS (RDS full load)
+│       └── public/
+│           ├── orders/
+│           │   └── LOAD00000001.csv.gz      (3.4M rows, 44 MB)
+│           └── order_products/
+│               ├── LOAD00000001.csv.gz      (32M rows part 1, 185 MB)
+│               └── LOAD00000002.csv.gz      (32M rows part 2,  84 MB)
+└── silver/                                  ← from Bronze → Silver ETL (optional)
+    ├── orders/                              (partitioned by user_id % 100)
+    ├── order_products/                      (partitioned by order_id % 100)
+    └── products/                            (joined product catalog)
 ```
 
-**Next steps (not covered in this runbook):**
-- Silver layer: Glue/Spark ETL to clean and standardize the bronze data
+---
+
+## Step 8 — (Optional) Run Bronze → Silver ETL
+
+After the Bronze layer is populated, you can run the ETL pipeline to create the Silver layer:
+
+```bash
+# From repo root
+export S3_BUCKET=$(terraform output -raw bronze_bucket)
+python -m instacart_mlops.processing.bronze_to_silver --s3-bucket $S3_BUCKET
+```
+
+**Expected output:**
+```
+12:00:00  INFO     Starting Bronze → Silver ETL pipeline
+12:00:00  INFO     S3 Bucket: nextcartai-dev-123456789012
+...
+12:05:00  INFO     Step 1: Processing Orders
+12:05:01  INFO     Reading orders from s3://nextcartai-dev-.../bronze/historical/...
+...
+12:10:00  INFO     Step 2: Processing Order Products
+...
+12:15:00  INFO     Step 3: Processing Product Catalog
+...
+12:20:00  INFO     ETL Pipeline Complete!
+12:20:00  INFO     Silver layer paths in s3://nextcartai-dev-...:
+12:20:00  INFO       - silver/orders/
+12:20:00  INFO       - silver/order_products/
+12:20:00  INFO       - silver/products/
+```
+
+Verify Silver data:
+```bash
+aws s3 ls s3://${TF_BRONZE_BUCKET}/silver/ --recursive --human-readable
+```
+
+**Next steps:**
 - Gold layer: Aggregate feature tables for ML modeling
 - Kinesis Stream: third data source (real-time order events)
+- ML model training and inference

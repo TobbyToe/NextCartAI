@@ -1,0 +1,29 @@
+name: bronze_products
+description: "Product catalog from API (Product events written by Lambda)"
+source: "bronze/api/product/*.json"
+fields:
+  - name: product_id
+    type: integer
+    nullable: false
+    description: "Unique product identifier (Primary Key)"
+
+  - name: product_name
+    type: string
+    nullable: false
+    description: "Product name"
+
+  - name: aisle_id
+    type: integer
+    nullable: false
+    description: "Aisle identifier (Foreign Key → aisles.aisle_id)"
+
+  - name: department_id
+    type: integer
+    nullable: false
+    description: "Department identifier (Foreign Key → departments.department_id)"
+
+  - name: type
+    type: string
+    nullable: false
+    description: "Event type marker"
+    allowed_values: ["product"]

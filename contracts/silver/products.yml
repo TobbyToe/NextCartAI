@@ -1,0 +1,65 @@
+name: silver_products
+description: "Product catalog wide table (JOIN products + aisles + departments)"
+source:
+  - "bronze/api/product/*.json"
+  - "bronze/api/aisle/*.json"
+  - "bronze/api/department/*.json"
+target: "silver/products/"
+partition_by: []
+format: parquet
+
+fields:
+  - name: product_id
+    type: integer
+    nullable: false
+    description: "Unique product identifier (Primary Key)"
+
+  - name: product_name
+    type: string
+    nullable: false
+    description: "Product name"
+
+  - name: aisle_id
+    type: integer
+    nullable: false
+    description: "Aisle identifier"
+
+  - name: aisle
+    type: string
+    nullable: false
+    description: "Aisle name"
+
+  - name: department_id
+    type: integer
+    nullable: false
+    description: "Department identifier"
+
+  - name: department
+    type: string
+    nullable: false
+    description: "Department name"
+
+transformations:
+  - name: join_product_aisle_department
+    description: "JOIN products with aisles and departments to create wide table"
+    joins:
+      - left: products
+        right: aisles
+        on: "products.aisle_id = aisles.aisle_id"
+      - left: products
+        right: departments
+        on: "products.department_id = departments.department_id"
+
+  - name: deduplicate
+    description: "Remove duplicate products based on product_id"
+    key: product_id
+
+  - name: select_distinct
+    description: "Select distinct product records with aisle and department names"
+    fields:
+      - "products.product_id"
+      - "products.product_name"
+      - "products.aisle_id"
+      - "aisles.aisle"
+      - "products.department_id"
+      - "departments.department"

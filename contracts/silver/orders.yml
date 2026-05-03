@@ -1,0 +1,72 @@
+name: silver_orders
+description: "Cleaned and standardized orders (Bronze → Silver ETL)"
+source: "bronze/historical/public/orders/*.csv.gz"
+target: "silver/orders/"
+partition_by: ["user_id_bucket"]
+format: parquet
+
+fields:
+  - name: order_id
+    type: integer
+    nullable: false
+    description: "Unique order identifier (Primary Key)"
+
+  - name: user_id
+    type: integer
+    nullable: false
+    description: "User identifier"
+
+  - name: eval_set
+    type: string
+    nullable: false
+    description: "Dataset type: train, test, or prior"
+    allowed_values: ["train", "test", "prior"]
+
+  - name: order_number
+    type: integer
+    nullable: false
+    description: "Sequential order number for this user"
+    min_value: 1
+
+  - name: order_dow
+    type: integer
+    nullable: false
+    description: "Day of week (0=Sunday, 6=Saturday)"
+    min_value: 0
+    max_value: 6
+
+  - name: order_hour_of_day
+    type: integer
+    nullable: false
+    description: "Hour of day (0-23)"
+    min_value: 0
+    max_value: 23
+
+  - name: days_since_prior_order
+    type: double
+    nullable: false
+    description: "Days since previous order (0.0 for first order, NULL filled)"
+    min_value: 0
+    default_value: 0.0
+
+  - name: user_id_bucket
+    type: integer
+    nullable: false
+    description: "Partition bucket: user_id % 100"
+    min_value: 0
+    max_value: 99
+
+transformations:
+  - name: fill_null_days_since_prior
+    description: "Replace NULL days_since_prior_order with 0.0 (first order)"
+    field: days_since_prior_order
+    rule: "COALESCE(days_since_prior_order, 0.0)"
+
+  - name: add_partition_bucket
+    description: "Add partition bucket column for efficient querying"
+    field: user_id_bucket
+    rule: "user_id % 100"
+
+  - name: deduplicate
+    description: "Remove duplicate orders based on order_id"
+    key: order_id
