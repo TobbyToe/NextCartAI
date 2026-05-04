@@ -20,6 +20,8 @@ import logging
 import time
 from pathlib import Path
 
+import pandas as pd
+
 import psycopg2
 from sqlalchemy import create_engine, text
 
@@ -96,36 +98,29 @@ def _copy_chunked(
     database_url: str,
     sql: str,
     filepath: Path,
-    chunk_size: int = 500_000,
+    chunk_size: int = 2_000_000,
 ) -> int:
-    """Stream a large gzip CSV into Postgres in chunks, using a fresh connection per batch.
+    """Stream a large CSV/gzip into Postgres in chunks via pandas, using a fresh connection per batch.
 
+    pandas uses C-level CSV parsing (much faster than Python readline).
     Each chunk is its own transaction so a dropped connection only loses one batch.
     If the load fails partway, re-run with --force to truncate and restart cleanly.
     """
-    opener = gzip.open(filepath, "rt") if filepath.suffix == ".gz" else open(filepath, "r")
+    compression = "gzip" if filepath.suffix == ".gz" else None
     total = 0
-    with opener as fh:
-        header = fh.readline()
-        while True:
-            chunk_lines = []
-            for _ in range(chunk_size):
-                line = fh.readline()
-                if not line:
-                    break
-                chunk_lines.append(line)
-            if not chunk_lines:
-                break
-            buf = io.StringIO(header + "".join(chunk_lines))
-            conn = _pg_conn(database_url)
-            try:
-                with conn.cursor() as cur:
-                    cur.copy_expert(sql, buf)
-                conn.commit()
-            finally:
-                conn.close()
-            total += len(chunk_lines)
-            log.info(f"  ... {total:,} rows inserted")
+    for chunk_df in pd.read_csv(filepath, compression=compression, chunksize=chunk_size):
+        buf = io.StringIO()
+        chunk_df.to_csv(buf, index=False, header=True)
+        buf.seek(0)
+        conn = _pg_conn(database_url)
+        try:
+            with conn.cursor() as cur:
+                cur.copy_expert(sql, buf)
+            conn.commit()
+        finally:
+            conn.close()
+        total += len(chunk_df)
+        log.info(f"  ... {total:,} rows inserted")
     return total
 
 
