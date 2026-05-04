@@ -52,10 +52,13 @@ jobs:
             --query 'DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId' \
             --output text)
           RUNNER_IP=$(curl -s https://checkip.amazonaws.com)/32
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          BRONZE_BUCKET="nextcartai-dev-${ACCOUNT_ID}"
           echo "rds_host=${RDS_HOST}" >> $GITHUB_OUTPUT
           echo "sg_id=${SG_ID}" >> $GITHUB_OUTPUT
           echo "runner_ip=${RUNNER_IP}" >> $GITHUB_OUTPUT
-          echo "RDS Host: ${RDS_HOST}, SG: ${SG_ID}, Runner IP: ${RUNNER_IP}"
+          echo "bronze_bucket=${BRONZE_BUCKET}" >> $GITHUB_OUTPUT
+          echo "RDS Host: ${RDS_HOST}, SG: ${SG_ID}, Runner IP: ${RUNNER_IP}, Bucket: ${BRONZE_BUCKET}"
 
       - name: Allow runner IP in RDS security group
         run: |
@@ -63,6 +66,14 @@ jobs:
             --group-id ${{ steps.aws-outputs.outputs.sg_id }} \
             --protocol tcp --port 5432 \
             --cidr ${{ steps.aws-outputs.outputs.runner_ip }}
+
+      - name: Download seed data from S3
+        run: |
+          mkdir -p references/imba_data
+          aws s3 cp s3://${{ steps.aws-outputs.outputs.bronze_bucket }}/references/imba_data/orders.csv \
+            references/imba_data/orders.csv
+          aws s3 cp s3://${{ steps.aws-outputs.outputs.bronze_bucket }}/references/imba_data/order_products__prior.csv.gz \
+            references/imba_data/order_products__prior.csv.gz
 
       - name: Install dependencies
         run: |
