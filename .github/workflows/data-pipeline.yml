@@ -40,29 +40,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
-
-      - name: Terraform Init
+      - name: Get RDS endpoint from AWS
+        id: aws-outputs
         run: |
-          cd $TERRAFORM_DIR
-          # Create plugin directory and set environment to skip signature verification
-          mkdir -p /tmp/terraform-plugins
-          export CHECKPOINT_DISABLE=1
-          export TF_APPEND_USER_AGENT=GithubActions
-          # Try to init with skip signature verification
-          terraform init -input=false || terraform init -input=false
-
-      - name: Get Terraform outputs
-        id: tf-outputs
-        run: |
-          cd $TERRAFORM_DIR
-          echo "rds_endpoint=$(terraform output -raw rds_endpoint)" >> $GITHUB_OUTPUT
-          echo "bronze_bucket=$(terraform output -raw bronze_bucket)" >> $GITHUB_OUTPUT
-          echo "RDS Endpoint: $(terraform output -raw rds_endpoint)"
-          echo "Bucket: $(terraform output -raw bronze_bucket)"
+          RDS_HOST=$(aws rds describe-db-instances \
+            --db-instance-identifier instacart-dev \
+            --query 'DBInstances[0].Endpoint.Address' \
+            --output text)
+          echo "rds_host=${RDS_HOST}" >> $GITHUB_OUTPUT
+          echo "RDS Host: ${RDS_HOST}"
 
       - name: Install dependencies
         run: |
@@ -70,7 +56,7 @@ jobs:
 
       - name: Seed RDS with historical data
         env:
-          RDS_HOST: ${{ steps.tf-outputs.outputs.rds_endpoint }}
+          RDS_HOST: ${{ steps.aws-outputs.outputs.rds_host }}
           RDS_PASSWORD: ${{ secrets.TF_VAR_db_password }}
         run: |
           python -m instacart_mlops.ingestion.rds_seeder
