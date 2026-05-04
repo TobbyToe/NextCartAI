@@ -18,6 +18,7 @@ Environment variables:
 """
 
 import os
+import urllib.parse
 from pathlib import Path
 
 # ── AWS / S3 ──────────────────────────────────────────────────────────────────
@@ -48,11 +49,12 @@ RDS_USER = os.getenv("RDS_USER", "instacart_admin")
 RDS_PASSWORD = os.getenv("RDS_PASSWORD", "")
 
 # Build DATABASE_URL for SQLAlchemy
-DATABASE_URL = (
-    f"postgresql://{RDS_USER}:{RDS_PASSWORD}@{RDS_HOST}:{RDS_PORT}/{RDS_DB}"
-    if RDS_HOST and RDS_PASSWORD
-    else ""
-)
+# Note: Special characters in password need to be URL-encoded
+if RDS_HOST and RDS_PASSWORD:
+    encoded_password = urllib.parse.quote_plus(RDS_PASSWORD)
+    DATABASE_URL = f"postgresql://{RDS_USER}:{encoded_password}@{RDS_HOST}:{RDS_PORT}/{RDS_DB}"
+else:
+    DATABASE_URL = ""
 
 # ── Spark ─────────────────────────────────────────────────────────────────────
 

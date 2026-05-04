@@ -38,6 +38,11 @@ variable "allocated_storage" {
   default = 20
 }
 
+variable "publicly_accessible" {
+  type    = bool
+  default = false
+}
+
 variable "skip_final_snapshot" {
   type    = bool
   default = false
