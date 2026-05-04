@@ -40,15 +40,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get RDS endpoint from AWS
+      - name: Get RDS info from AWS
         id: aws-outputs
         run: |
           RDS_HOST=$(aws rds describe-db-instances \
             --db-instance-identifier instacart-dev \
             --query 'DBInstances[0].Endpoint.Address' \
             --output text)
+          SG_ID=$(aws rds describe-db-instances \
+            --db-instance-identifier instacart-dev \
+            --query 'DBInstances[0].VpcSecurityGroups[0].VpcSecurityGroupId' \
+            --output text)
+          RUNNER_IP=$(curl -s https://checkip.amazonaws.com)/32
           echo "rds_host=${RDS_HOST}" >> $GITHUB_OUTPUT
-          echo "RDS Host: ${RDS_HOST}"
+          echo "sg_id=${SG_ID}" >> $GITHUB_OUTPUT
+          echo "runner_ip=${RUNNER_IP}" >> $GITHUB_OUTPUT
+          echo "RDS Host: ${RDS_HOST}, SG: ${SG_ID}, Runner IP: ${RUNNER_IP}"
+
+      - name: Allow runner IP in RDS security group
+        run: |
+          aws ec2 authorize-security-group-ingress \
+            --group-id ${{ steps.aws-outputs.outputs.sg_id }} \
+            --protocol tcp --port 5432 \
+            --cidr ${{ steps.aws-outputs.outputs.runner_ip }}
 
       - name: Install dependencies
         run: |
@@ -60,6 +74,14 @@ jobs:
           RDS_PASSWORD: ${{ secrets.TF_VAR_db_password }}
         run: |
           python -m instacart_mlops.ingestion.rds_seeder
+
+      - name: Revoke runner IP from RDS security group
+        if: always()
+        run: |
+          aws ec2 revoke-security-group-ingress \
+            --group-id ${{ steps.aws-outputs.outputs.sg_id }} \
+            --protocol tcp --port 5432 \
+            --cidr ${{ steps.aws-outputs.outputs.runner_ip }}
 
   api-simulator:
     if: github.event.inputs.step == 'api-simulator'

@@ -66,14 +66,15 @@ module "bronze_s3" {
 
 # ── RDS PostgreSQL (Historical Orders) ───────────────────────────────────────
 module "rds" {
-  source              = "../../modules/rds"
-  identifier          = "instacart-${var.environment}"
-  vpc_id              = data.aws_vpc.default.id
-  subnet_ids          = data.aws_subnets.default.ids
-  allowed_cidr_blocks = [data.aws_vpc.default.cidr_block]
-  db_username         = var.db_username
-  db_password         = var.db_password
-  skip_final_snapshot = true
+  source               = "../../modules/rds"
+  identifier           = "instacart-${var.environment}"
+  vpc_id               = data.aws_vpc.default.id
+  subnet_ids           = data.aws_subnets.default.ids
+  allowed_cidr_blocks  = [data.aws_vpc.default.cidr_block]
+  db_username          = var.db_username
+  db_password          = var.db_password
+  skip_final_snapshot  = true
+  publicly_accessible  = true
 }
 
 # ── Lambda + IAM (Product API Handler) ───────────────────────────────────────
