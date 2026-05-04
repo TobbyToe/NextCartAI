@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 # Bronze paths
-BRONZE_ORDERS_PATH = f"{BRONZE_HISTORICAL_PREFIX}/public/orders/*.csv.gz"
+BRONZE_ORDERS_PATH = f"{BRONZE_HISTORICAL_PREFIX}/public/orders/*.csv*"
 BRONZE_ORDER_PRODUCTS_PATH = f"{BRONZE_HISTORICAL_PREFIX}/public/order_products/*.csv.gz"
 BRONZE_PRODUCTS_PATH = f"{BRONZE_API_PREFIX}/product/*.json"
 BRONZE_AISLES_PATH = f"{BRONZE_API_PREFIX}/aisle/*.json"
