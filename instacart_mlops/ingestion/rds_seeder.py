@@ -100,7 +100,7 @@ def _copy_chunked(
     filepath: Path,
     chunk_size: int = 2_000_000,
 ) -> int:
-    """Stream a large CSV/gzip into Postgres in chunks via pandas, using a fresh connection per batch.
+    """Stream a large CSV/gzip into Postgres in chunks via pandas, fresh connection per batch.
 
     pandas uses C-level CSV parsing (much faster than Python readline).
     Each chunk is its own transaction so a dropped connection only loses one batch.
