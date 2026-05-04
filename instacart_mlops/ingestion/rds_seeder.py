@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import gzip
+import io
 import logging
 import time
 from pathlib import Path
@@ -71,7 +72,13 @@ _ORDER_PRODUCTS_COLS = ["order_id", "product_id", "add_to_cart_order", "reordere
 def _pg_conn(database_url: str) -> psycopg2.extensions.connection:
     # SQLAlchemy URL → psycopg2 DSN (strip driver suffix)
     dsn = database_url.replace("postgresql+psycopg2://", "postgresql://")
-    return psycopg2.connect(dsn)
+    return psycopg2.connect(
+        dsn,
+        keepalives=1,
+        keepalives_idle=30,
+        keepalives_interval=10,
+        keepalives_count=5,
+    )
 
 
 def _is_populated(engine, table: str) -> bool:
@@ -83,6 +90,43 @@ def _copy(cursor, sql: str, filepath: Path, compressed: bool) -> None:
     opener = gzip.open(filepath, "rt") if compressed else open(filepath, "r")
     with opener as fh:
         cursor.copy_expert(sql, fh)
+
+
+def _copy_chunked(
+    database_url: str,
+    sql: str,
+    filepath: Path,
+    chunk_size: int = 500_000,
+) -> int:
+    """Stream a large gzip CSV into Postgres in chunks, using a fresh connection per batch.
+
+    Each chunk is its own transaction so a dropped connection only loses one batch.
+    If the load fails partway, re-run with --force to truncate and restart cleanly.
+    """
+    opener = gzip.open(filepath, "rt") if filepath.suffix == ".gz" else open(filepath, "r")
+    total = 0
+    with opener as fh:
+        header = fh.readline()
+        while True:
+            chunk_lines = []
+            for _ in range(chunk_size):
+                line = fh.readline()
+                if not line:
+                    break
+                chunk_lines.append(line)
+            if not chunk_lines:
+                break
+            buf = io.StringIO(header + "".join(chunk_lines))
+            conn = _pg_conn(database_url)
+            try:
+                with conn.cursor() as cur:
+                    cur.copy_expert(sql, buf)
+                conn.commit()
+            finally:
+                conn.close()
+            total += len(chunk_lines)
+            log.info(f"  ... {total:,} rows inserted")
+    return total
 
 
 # ── Schema ────────────────────────────────────────────────────────────────────
@@ -121,7 +165,7 @@ def seed_orders(pg_conn, engine, force: bool) -> None:
     log.info(f"orders loaded in {time.perf_counter() - t0:.1f}s.")
 
 
-def seed_order_products(pg_conn, engine, force: bool) -> None:
+def seed_order_products(database_url: str, pg_conn, engine, force: bool) -> None:
     if not force and _is_populated(engine, "order_products"):
         log.info("order_products already populated — skipping.")
         return
@@ -135,15 +179,16 @@ def seed_order_products(pg_conn, engine, force: bool) -> None:
         "FROM STDIN WITH (FORMAT CSV, HEADER, NULL '')"
     )
 
-    log.info(f"Loading order_products from {filepath.name} (~32M rows) …")
-    t0 = time.perf_counter()
-    with pg_conn.cursor() as cur:
-        if force:
+    if force:
+        with pg_conn.cursor() as cur:
             cur.execute("TRUNCATE TABLE order_products")
-            log.info("Truncated order_products.")
-        _copy(cur, copy_sql, filepath, compressed=True)
-    pg_conn.commit()
-    log.info(f"order_products loaded in {time.perf_counter() - t0:.1f}s.")
+        pg_conn.commit()
+        log.info("Truncated order_products.")
+
+    log.info(f"Loading order_products from {filepath.name} (~32M rows) in 500k-row chunks …")
+    t0 = time.perf_counter()
+    total = _copy_chunked(database_url, copy_sql, filepath)
+    log.info(f"order_products loaded {total:,} rows in {time.perf_counter() - t0:.1f}s.")
 
 
 # ── Entrypoint ────────────────────────────────────────────────────────────────
@@ -180,7 +225,7 @@ def main() -> None:
     try:
         ensure_schema(engine)
         seed_orders(pg_conn, engine, force=args.force)
-        seed_order_products(pg_conn, engine, force=args.force)
+        seed_order_products(DATABASE_URL, pg_conn, engine, force=args.force)
         log.info("Seed complete.")
     except Exception:
         pg_conn.rollback()
