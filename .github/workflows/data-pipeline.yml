@@ -193,15 +193,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get Terraform outputs
-        id: tf-outputs
+      - name: Get bucket name from AWS
+        id: aws-outputs
         run: |
-          cd $TERRAFORM_DIR
-          echo "bronze_bucket=$(terraform output -raw bronze_bucket)" >> $GITHUB_OUTPUT
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "bronze_bucket=nextcartai-dev-${ACCOUNT_ID}" >> $GITHUB_OUTPUT
 
       - name: Run Bronze to Silver ETL
         env:
-          S3_BUCKET: ${{ steps.tf-outputs.outputs.bronze_bucket }}
+          S3_BUCKET: ${{ steps.aws-outputs.outputs.bronze_bucket }}
           AWS_REGION: ${{ env.AWS_REGION }}
         run: |
           python -m instacart_mlops.processing.bronze_to_silver --s3-bucket $S3_BUCKET
